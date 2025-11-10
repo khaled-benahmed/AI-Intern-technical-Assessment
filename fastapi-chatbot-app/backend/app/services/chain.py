@@ -6,27 +6,56 @@
 """
 from typing import List
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from app.services.embeddings import GeminiEmbeddings
+from qdrant_client import QdrantClient
+from qdrant_client.models import VectorParams, Distance
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableParallel
-from langchain_community.vectorstores import Qdrant
+from langchain_qdrant import Qdrant
 from app.config import settings
 from app.services.memory import ConversationMemoryService
 
 
 def build_vectorstores():
-    embedding = GoogleGenerativeAIEmbeddings(
+    embedding = GeminiEmbeddings(
+        api_key=settings.api_key,
         model=settings.gemini_embedding_model,
-        google_api_key=settings.api_key,
     )
     qdrant_url = f"http://{settings.qdrant_host}:{settings.qdrant_port}"
-    docs_store = Qdrant(
-        embedding_function=embedding,
+
+    # Ensure collections exist using raw Qdrant client to avoid lazy initialization issues
+    client = QdrantClient(url=qdrant_url)
+    dim = len(embedding.embed_query("__init_dim__")) or 768
+
+    def ensure_collection(name: str):
+        try:
+            existing = client.get_collections().collections
+            names = {c.name for c in existing}
+            if name not in names:
+                client.create_collection(
+                    collection_name=name,
+                    vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
+                )
+        except Exception:
+            # If any error occurs, attempt recreate
+            try:
+                client.recreate_collection(
+                    collection_name=name,
+                    vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
+                )
+            except Exception:
+                pass
+
+    ensure_collection(settings.documents_collection)
+    ensure_collection(settings.conversation_collection)
+
+    docs_store = Qdrant.from_existing_collection(
+        embedding=embedding,
         url=qdrant_url,
         collection_name=settings.documents_collection,
     )
-    convo_store = Qdrant(
-        embedding_function=embedding,
+    convo_store = Qdrant.from_existing_collection(
+        embedding=embedding,
         url=qdrant_url,
         collection_name=settings.conversation_collection,
     )
@@ -65,10 +94,14 @@ def build_chain():
     )
 
     # Build a small LCEL pipeline
+    def memory_block(q: str) -> str:
+        return memory.build_context_block(message=q)
+
     gather = RunnableParallel(
-        docs=docs_retriever,
-        convos=convo_retriever,
-        recent=lambda x: memory.build_context_block(),
+        question=lambda x: x["question"],
+        docs=lambda x: docs_retriever.invoke(x["question"]),
+        convos=lambda x: convo_retriever.invoke(x["question"]),
+        recent=lambda x: memory_block(x["question"]),
     )
 
     chain = (

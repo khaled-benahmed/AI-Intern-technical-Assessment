@@ -1,0 +1,13 @@
+[project]
+name = "fastapi-chatbot-frontend"
+version = "0.1.0"
+description = "Streamlit UI for FastAPI chatbot"
+requires-python = ">=3.10"
+dependencies = [
+    "streamlit>=1.36",
+    "requests>=2.31",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
