@@ -10,6 +10,10 @@ __pycache__/
 .uv/
 .env
 .env.*
+**/.env
+**/.env.*
+**/.env
+**/.env.*
 
 # VS Code
 .vscode/

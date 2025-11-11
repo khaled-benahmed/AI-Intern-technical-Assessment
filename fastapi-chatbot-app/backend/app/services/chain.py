@@ -77,8 +77,25 @@ def build_chain():
     convo_retriever = convo_store.as_retriever(search_kwargs={"k": 5})
 
     # Compose inputs
+    def _fmt_doc(d) -> str:
+        try:
+            meta = getattr(d, "metadata", {}) or {}
+            src = meta.get("source")
+            page = meta.get("page")
+            suffix = ""
+            if src or page:
+                parts = []
+                if src:
+                    parts.append(str(src))
+                if page:
+                    parts.append(f"p.{page}")
+                suffix = f" [source: {' · '.join(parts)}]"
+            return f"{d.page_content}{suffix}"
+        except Exception:
+            return d.page_content
+
     def format_context(docs: List, convos: List, recent: str):
-        doc_block = "\n\n".join([d.page_content for d in docs]) if docs else ""
+        doc_block = "\n\n".join([_fmt_doc(d) for d in docs]) if docs else ""
         convo_block = "\n\n".join([c.page_content for c in convos]) if convos else ""
         blocks = [
             ("Documents:", doc_block),

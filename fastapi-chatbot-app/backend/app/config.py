@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     # Collections
     documents_collection: str = "documents"
     conversation_collection: str = "conversation_history"
+    topics_collection: str = "conversation_topics"
 
     # Chunking parameters
     chunk_size: int = 800

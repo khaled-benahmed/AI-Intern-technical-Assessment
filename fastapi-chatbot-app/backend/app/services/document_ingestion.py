@@ -86,13 +86,25 @@ class DocumentIngestionService:
             return self._load_csv(file_bytes)
         raise ValueError(f"Unsupported file type: {suffix}")
 
-    def chunk(self, raw_text: str) -> List[Document]:
-        return [Document(page_content=chunk) for chunk in self.splitter.split_text(raw_text)]
+    def chunk(self, raw_text: str, filename: Optional[str] = None) -> List[Document]:
+        chunks = self.splitter.split_text(raw_text)
+        docs: List[Document] = []
+        for i, chunk in enumerate(chunks, start=1):
+            docs.append(
+                Document(
+                    page_content=chunk,
+                    metadata={
+                        "source": filename,
+                        "page": i,
+                    },
+                )
+            )
+        return docs
 
     def ingest(self, filename: str, file_bytes: bytes) -> int:
         """Parse, chunk, embed and upsert into Qdrant collection. Returns number of chunks."""
         raw_text = self.parse_file(filename, file_bytes)
-        docs = self.chunk(raw_text)
+        docs = self.chunk(raw_text, filename=filename)
         # Initialize or extend vector store
         qdrant_url = f"http://{settings.qdrant_host}:{settings.qdrant_port}"
         Qdrant.from_documents(
