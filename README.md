@@ -1,4 +1,4 @@
-## FastAPI + LangChain + Gemini (Qdrant) Chatbot — Short Docs
+## FastAPI + LangChain + Gemini + Qdrant Chatbot
 
 This project provides a small RAG chatbot that: ingests documents (PDF/DOCX/CSV),
 indexes text and images (OCR), stores vectors in Qdrant, and answers
